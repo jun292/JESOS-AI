@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini AI Chat</title>
+    <!-- Firebase & Gemini SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@google/generative-ai/dist/index.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #10b981;
+            --dark: #1f2937;
+            --light: #f9fafb;
+            --gray: #9ca3af;
+            --danger: #ef4444;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: var(--dark);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Auth Styles */
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .auth-box {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            width: 400px;
+            padding: 30px;
+            transition: all 0.3s ease;
+        }
+        
+        .auth-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+        
+        .auth-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .auth-header h2 {
+            color: var(--primary);
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .auth-header p {
+            color: var(--gray);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--dark);
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 20px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s;
+            text-align: center;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+        }
+        
+        .auth-footer {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .auth-footer a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .auth-footer a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Chat Styles */
+        .chat-container {
+            display: flex;
+            height: 100vh;
+            background: white;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: var(--dark);
+            color: white;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        
+        .user-details {
+            flex: 1;
+        }
+        
+        .user-name {
+            font-weight: 500;
+        }
+        
+        .user-role {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        
+        .sidebar-menu {
+            padding: 20px;
+            flex: 1;
+        }
+        
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .menu-item.active, .menu-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .menu-item i {
+            margin-right: 10px;
+            font-size: 18px;
+        }
+        
+        .logout-btn {
+            margin-top: auto;
+            padding: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .chat-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .chat-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .chat-title {
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .message {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            position: relative;
+            line-height: 1.5;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user {
+            align-self: flex-end;
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.ai {
+            align-self: flex-start;
+            background: #f3f4f6;
+            color: var(--dark);
+            border-bottom-left-radius: 4px;
+        }
+        
+        .message-time {
+            font-size: 11px;
+            margin-top: 5px;
+            opacity: 0.7;
+            text-align: right;
+        }
+        
+        .chat-input {
+            padding: 20px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .input-field {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            resize: none;
+            height: 50px;
+            transition: all 0.3s;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        
+        .send-btn {
+            padding: 0 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .send-btn:hover {
+            background: var(--primary-dark);
+        }
+        
+        /* Admin Dashboard */
+        .dashboard {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        .dashboard-main {
+            flex: 1;
+            padding: 20px;
+        }
+        
+        .dashboard-header {
+            margin-bottom: 30px;
+        }
+        
+        .dashboard-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .stat-title {
+            font-size: 16px;
+            color: var(--gray);
+        }
+        
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary);
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        .stat-change {
+            font-size: 14px;
+            color: var(--secondary);
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .table-header {
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .table-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .table-content {
+            padding: 0;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .data-table th, .data-table td {
+            padding: 12px 20px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .data-table th {
+            background: #f9fafb;
+            font-weight: 500;
+            color: var(--gray);
+        }
+        
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-active {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--secondary);
+        }
+        
+        .status-inactive {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Authentication Section -->
+    <div id="authSection" class="auth-container">
+        <div class="auth-box">
+            <div class="auth-header">
+                <h2>Selamat Datang</h2>
+                <p>Silakan masuk untuk mengakses AI Chat</p>
+            </div>
+            <form id="authForm">
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" class="form-control" placeholder="Alamat email Anda" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Kata Sandi</label>
+                    <input type="password" id="password" class="form-control" placeholder="Kata sandi Anda" required>
+                </div>
+                <button type="submit" class="btn" id="authButton">Masuk</button>
+            </form>
+            <div class="auth-footer">
+                <p>Belum punya akun? <a href="#" id="toggleAuth">Daftar di sini</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Section -->
+    <div id="chatSection" class="chat-container hidden">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">U</div>
+                    <div class="user-details">
+                        <div class="user-name" id="userName">User</div>
+                        <div class="user-role" id="userRole">Pengguna</div>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item active">
+                    <i class="fas fa-comment"></i>
+                    <span>Chat AI</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-history"></i>
+                    <span>Riwayat Chat</span>
+                </div>
+                <div class="menu-item admin-only hidden">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard Admin</span>
+                </div>
+                <div class="menu-item admin-only hidden">
+                    <i class="fas fa-users"></i>
+                    <span>Kelola Pengguna</span>
+                </div>
+            </div>
+            <div class="logout-btn">
+                <button class="btn" id="logoutButton">Keluar</button>
+            </div>
+        </div>
+        <div class="chat-main">
+            <div class="chat-header">
+                <div class="chat-title">Gemini AI Chat</div>
+                <div class="chat-status">
+                    <i class="fas fa-circle" style="color: var(--secondary);"></i>
+                    <span>Terhubung</span>
+                </div>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="message ai">
+                    <div class="message-text">Halo! Saya adalah asisten AI berbasis Gemini. Ada yang bisa saya bantu?</div>
+                    <div class="message-time">Just now</div>
+                </div>
+            </div>
+            <div class="chat-input">
+                <textarea class="input-field" id="messageInput" placeholder="Ketik pesan Anda di sini..." rows="1"></textarea>
+                <button class="send-btn" id="sendButton">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard Section -->
+    <div id="adminSection" class="dashboard hidden">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="user-info">
+                    <div class="user-avatar" id="adminAvatar">A</div>
+                    <div class="user-details">
+                        <div class="user-name" id="adminName">Admin</div>
+                        <div class="user-role">Administrator</div>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-users"></i>
+                    <span>Kelola Pengguna</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-comments"></i>
+                    <span>Riwayat Chat</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-cog"></i>
+                    <span>Pengaturan</span>
+                </div>
+            </div>
+            <div class="logout-btn">
+                <button class="btn" id="adminLogoutButton">Keluar</button>
+            </div>
+        </div>
+        <div class="dashboard-main">
+            <div class="dashboard-header">
+                <h1 class="dashboard-title">Dashboard Admin</h1>
+                <p>Ringkasan aktivitas dan statistik sistem</p>
+            </div>
+            
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-title">Total Pengguna</div>
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                    </div>
+                    <div class="stat-value">152</div>
+                    <div class="stat-change">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>12% dari bulan lalu</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-title">Percakapan Hari Ini</div>
+                        <div class="stat-icon">
+                            <i class="fas fa-comments"></i>
+                        </div>
+                    </div>
+                    <div class="stat-value">342</div>
+                    <div class="stat-change">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>8% dari kemarin</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-title">Rata-rata Respons</div>
+                        <div class="stat-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                    </div>
+                    <div class="stat-value">1.2s</div>
+                    <div class="stat-change">
+                        <i class="fas fa-arrow-down"></i>
+                        <span>0.3s lebih cepat</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-title">Kepuasan Pengguna</div>
+                        <div class="stat-icon">
+                            <i class="fas fa-star"></i>
+                        </div>
+                    </div>
+                    <div class="stat-value">94%</div>
+                    <div class="stat-change">
+                        <i class="fas fa-arrow-up"></i>
+                        <span>3% dari minggu lalu</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <div class="table-header">
+                    <div class="table-title">Pengguna Terbaru</div>
+                    <button class="btn" style="width: auto;">Lihat Semua</button>
+                </div>
+                <div class="table-content">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Nama</th>
+                                <th>Email</th>
+                                <th>Tanggal Daftar</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Budi Santoso</td>
+                                <td>budi@example.com</td>
+                                <td>12 Jun 2023</td>
+                                <td><span class="status-badge status-active">Aktif</span></td>
+                            </tr>
+                            <tr>
+                                <td>Siti Rahayu</td>
+                                <td>siti@example.com</td>
+                                <td>11 Jun 2023</td>
+                                <td><span class="status-badge status-active">Aktif</span></td>
+                            </tr>
+                            <tr>
+                                <td>Agus Wijaya</td>
+                                <td>agus@example.com</td>
+                                <td>10 Jun 2023</td>
+                                <td><span class="status-badge status-inactive">Tidak Aktif</span></td>
+                            </tr>
+                            <tr>
+                                <td>Dewi Lestari</td>
+                                <td>dewi@example.com</td>
+                                <td>9 Jun 2023</td>
+                                <td><span class="status-badge status-active">Aktif</span></td>
+                            </tr>
+                            <tr>
+                                <td>Rudi Hermawan</td>
+                                <td>rudi@example.com</td>
+                                <td>8 Jun 2023</td>
+                                <td><span class="status-badge status-active">Aktif</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Konfigurasi Firebase
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "YOUR_APP_ID"
+        };
+        
+        // Inisialisasi Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        
+        // Inisialisasi Gemini AI
+        // Catatan: Anda perlu mendapatkan API key dari Google AI Studio
+        const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY";
+        
+        // Elemen DOM
+        const authSection = document.getElementById('authSection');
+        const chatSection = document.getElementById('chatSection');
+        const adminSection = document.getElementById('adminSection');
+        const authForm = document.getElementById('authForm');
+        const authButton = document.getElementById('authButton');
+        const toggleAuth = document.getElementById('toggleAuth');
+        const logoutButton = document.getElementById('logoutButton');
+        const adminLogoutButton = document.getElementById('adminLogoutButton');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const chatMessages = document.getElementById('chatMessages');
+        const userAvatar = document.getElementById('userAvatar');
+        const userName = document.getElementById('userName');
+        const userRole = document.getElementById('userRole');
+        const adminOnlyElements = document.querySelectorAll('.admin-only');
+        
+        // Status autentikasi
+        let isLogin = true;
+        
+        // Toggle antara login dan registrasi
+        toggleAuth.addEventListener('click', (e) => {
+            e.preventDefault();
+            isLogin = !isLogin;
+            
+            if (isLogin) {
+                authButton.textContent = 'Masuk';
+                toggleAuth.textContent = 'Daftar di sini';
+                document.querySelector('.auth-header h2').textContent = 'Selamat Datang';
+                document.querySelector('.auth-header p').textContent = 'Silakan masuk untuk mengakses AI Chat';
+            } else {
+                authButton.textContent = 'Daftar';
+                toggleAuth.textContent = 'Masuk di sini';
+                document.querySelector('.auth-header h2').textContent = 'Buat Akun Baru';
+                document.querySelector('.auth-header p').textContent = 'Daftar untuk mengakses AI Chat';
+            }
+        });
+        
+        // Proses autentikasi
+        authForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (isLogin) {
+                // Login
+                auth.signInWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        // Berhasil login
+                        checkUserRole(userCredential.user);
+                    })
+                    .catch((error) => {
+                        alert('Error saat login: ' + error.message);
+                    });
+            } else {
+                // Registrasi
+                auth.createUserWithEmailAndPassword(email, password)
+                    .then((userCredential) => {
+                        // Set user sebagai pengguna biasa secara default
+                        return db.collection('users').doc(userCredential.user.uid).set({
+                            email: email,
+                            role: 'user',
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    })
+                    .then(() => {
+                        checkUserRole(auth.currentUser);
+                    })
+                    .catch((error) => {
+                        alert('Error saat registrasi: ' + error.message);
+                    });
+            }
+        });
+        
+        // Cek role pengguna
+        function checkUserRole(user) {
+            if (user) {
+                db.collection('users').doc(user.uid).get()
+                    .then((doc) => {
+                        if (doc.exists) {
+                            const userData = doc.data();
+                            
+                            // Tampilkan UI sesuai role
+                            if (userData.role === 'admin') {
+                                showAdminDashboard(user, userData);
+                            } else {
+                                showChatUI(user, userData);
+                            }
+                        } else {
+                            // Jika data user tidak ada, buat data user baru dengan role user
+                            db.collection('users').doc(user.uid).set({
+                                email: user.email,
+                                role: 'user',
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            }).then(() => {
+                                showChatUI(user, {email: user.email, role: 'user'});
+                            });
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error getting user document:', error);
+                    });
+            }
+        }
+        
+        // Tampilkan UI chat
+        function showChatUI(user, userData) {
+            authSection.classList.add('hidden');
+            chatSection.classList.remove('hidden');
+            adminSection.classList.add('hidden');
+            
+            // Set user info
+            userAvatar.textContent = userData.email.charAt(0).toUpperCase();
+            userName.textContent = userData.email;
+            userRole.textContent = userData.role === 'admin' ? 'Administrator' : 'Pengguna';
+            
+            // Tampilkan menu admin hanya untuk admin
+            if (userData.role === 'admin') {
+                adminOnlyElements.forEach(el => el.classList.remove('hidden'));
+            }
+        }
+        
+        // Tampilkan dashboard admin
+        function showAdminDashboard(user, userData) {
+            authSection.classList.add('hidden');
+            chatSection.classList.add('hidden');
+            adminSection.classList.remove('hidden');
+            
+            // Set admin info
+            document.getElementById('adminAvatar').textContent = userData.email.charAt(0).toUpperCase();
+            document.getElementById('adminName').textContent = userData.email;
+        }
+        
+        // Logout
+        logoutButton.addEventListener('click', () => {
+            auth.signOut().then(() => {
+                chatSection.classList.add('hidden');
+                authSection.classList.remove('hidden');
+            });
+        });
+        
+        adminLogoutButton.addEventListener('click', () => {
+            auth.signOut().then(() => {
+                adminSection.classList.add('hidden');
+                authSection.classList.remove('hidden');
+            });
+        });
+        
+        // Kirim pesan
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message === '') return;
+            
+            // Tambahkan pesan pengguna ke chat
+            addMessageToChat(message, 'user');
+            messageInput.value = '';
+            
+            // Kirim ke Gemini AI
+            // Catatan: Implementasi aktual memerlukan API key yang valid
+            simulateGeminiResponse(message);
+        }
+        
+        function addMessageToChat(text, sender) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', sender);
+            
+            const messageText = document.createElement('div');
+            messageText.classList.add('message-text');
+            messageText.textContent = text;
+            
+            const messageTime = document.createElement('div');
+            messageTime.classList.add('message-time');
+            messageTime.textContent = new Date().toLocaleTimeString();
+            
+            messageElement.appendChild(messageText);
+            messageElement.appendChild(messageTime);
+            
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        // Simulasi respons dari Gemini AI
+        function simulateGeminiResponse(userMessage) {
+            // Dalam implementasi nyata, ini akan memanggil API Gemini
+            setTimeout(() => {
+                let response = '';
+                
+                if (userMessage.toLowerCase().includes('halo') || userMessage.toLowerCase().includes('hi')) {
+                    response = 'Halo! Ada yang bisa saya bantu?';
+                } else if (userMessage.toLowerCase().includes('nama')) {
+                    response = 'Saya adalah asisten AI yang menggunakan model Gemini 2.5-pro.';
+                } else if (userMessage.toLowerCase().includes('weather') || userMessage.toLowerCase().includes('cuaca')) {
+                    response = 'Saya tidak memiliki akses data cuaca real-time. Namun, saya bisa membantu dengan informasi umum tentang cuaca.';
+                } else {
+                    response = 'Terima kasih atas pesannya. Ini adalah respons dari Gemini AI. Dalam implementasi nyata, ini akan menjadi respons yang dihasilkan oleh model Gemini 2.5-pro.';
+                }
+                
+                addMessageToChat(response, 'ai');
+                
+                // Simpan chat ke Firestore
+                if (auth.currentUser) {
+                    db.collection('chats').add({
+                        userId: auth.currentUser.uid,
+                        userMessage: userMessage,
+                        aiResponse: response,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    }).catch(error => {
+                        console.error('Error saving chat:', error);
+                    });
+                }
+            }, 1000);
+        }
+        
+        // Deteksi status autentikasi
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                checkUserRole(user);
+            } else {
+                authSection.classList.remove('hidden');
+                chatSection.classList.add('hidden');
+                adminSection.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
